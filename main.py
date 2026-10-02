@@ -151,7 +151,7 @@ async def generar_informe_endpoint(solicitud: SolicitudVerificacion):
         """
 
         response = client.models.generate_content(
-           'gemini-2.5-flash-lite'
+           model='gemini-2.5-flash-lite',
             contents=f"Generar informe para la empresa {solicitud.razon_social} con NIT {solicitud.nit_empresa}.",
             config=types.GenerateContentConfig(system_instruction=prompt_sistema, temperature=0.2)
         )
