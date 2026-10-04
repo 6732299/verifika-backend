@@ -219,23 +219,23 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
         page = await browser.new_page()
+
         await page.goto(
             "https://www.sicoes.gob.bo/portal/contrataciones/busqueda/convocatorias.php?tipo=convNacional",
-            wait_until="networkidle",
+            wait_until="domcontentloaded",
             timeout=60000
         )
 
-        # Cambiar a modo de búsqueda "Avanzada"
+        await page.wait_for_selector("text=Avanzada", timeout=60000)
         await page.get_by_text("Avanzada", exact=True).click()
-        await page.wait_for_timeout(1500)
+        await page.wait_for_timeout(2000)
 
-        # Ubicar el campo "Nro. Documento" (dentro de "Proponente Adjudicada/Contratada")
         campo_nit = page.locator("text=Nro. Documento").locator("xpath=following::input[1]")
-        await campo_nit.fill(nit)
+        await campo_nit.wait_for(timeout=30000)
+        await campo_nit.fill(nit, timeout=30000)
 
-        # Ejecutar la búsqueda
-        await page.get_by_role("button", name="Buscar").click()
-        await page.wait_for_timeout(4000)
+        await page.get_by_role("button", name="Buscar").click(timeout=30000)
+        await page.wait_for_timeout(5000)
 
         filas = await page.query_selector_all("table tbody tr")
         for fila in filas:
