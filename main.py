@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from google import genai
 from google.genai import types
+from playwright.async_api import async_playwright
 
 app = FastAPI(
     title="API Backend - VERIFIKA B2B",
@@ -71,22 +72,13 @@ def establecer_fondo_celda(celda, color_hex):
     tcPr.append(shd)
 
 def agregar_texto_con_formato(doc, texto: str):
-    """
-    Convierte el texto Markdown que devuelve Gemini (#, ##, **negrita**, listas con *)
-    en elementos reales de Word, en vez de pegar los símbolos tal cual.
-    """
     lineas = texto.split("\n")
     for linea in lineas:
         linea = linea.strip()
-
         if not linea:
             continue
-
-        # Líneas separadoras "---" no se imprimen, solo se ignoran
         if linea.startswith("---"):
             continue
-
-        # Encabezados Markdown -> títulos reales de Word
         if linea.startswith("### "):
             doc.add_heading(linea[4:].replace("**", "").strip(), level=3)
             continue
@@ -96,16 +88,11 @@ def agregar_texto_con_formato(doc, texto: str):
         if linea.startswith("# "):
             doc.add_heading(linea[2:].replace("**", "").strip(), level=1)
             continue
-
-        # Listas con * o - -> viñetas reales de Word
         es_lista = False
         if linea.startswith("* ") or linea.startswith("- "):
             linea = linea[2:].strip()
             es_lista = True
-
         parrafo = doc.add_paragraph(style="List Bullet" if es_lista else None)
-
-        # Negritas **texto** -> negrita real de Word
         partes = re.split(r"(\*\*.*?\*\*)", linea)
         for parte in partes:
             if not parte:
@@ -199,8 +186,7 @@ async def generar_informe_endpoint(solicitud: SolicitudVerificacion):
 
         IMPORTANTE: No incluyas una línea de "Fecha de emisión" ni un encabezado con fecha, destinatario
         o nombre de empresa al inicio del texto — esos datos ya aparecen en la tabla de metadatos del
-        documento. Empieza directamente con el análisis (por ejemplo con el encabezado "RESUMEN DE
-        IDENTIFICACIÓN" o similar).
+        documento. Empieza directamente con el análisis.
         """
         response = client.models.generate_content(
             model='gemini-3.5-flash-lite',
@@ -222,3 +208,64 @@ async def generar_informe_endpoint(solicitud: SolicitudVerificacion):
             raise HTTPException(status_code=500, detail="Error al compilar el documento.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------------------------------------------------------------
+# PRUEBA PILOTO: motor de búsqueda automática en SICOES por NIT
+# ---------------------------------------------------------------------------
+
+async def buscar_sicoes_por_nit(nit: str) -> list:
+    resultados = []
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True, args=["--no-sandbox"])
+        page = await browser.new_page()
+        await page.goto(
+            "https://www.sicoes.gob.bo/portal/contrataciones/busqueda/convocatorias.php?tipo=convNacional",
+            wait_until="networkidle",
+            timeout=60000
+        )
+
+        # Cambiar a modo de búsqueda "Avanzada"
+        await page.get_by_text("Avanzada", exact=True).click()
+        await page.wait_for_timeout(1500)
+
+        # Ubicar el campo "Nro. Documento" (dentro de "Proponente Adjudicada/Contratada")
+        campo_nit = page.locator("text=Nro. Documento").locator("xpath=following::input[1]")
+        await campo_nit.fill(nit)
+
+        # Ejecutar la búsqueda
+        await page.get_by_role("button", name="Buscar").click()
+        await page.wait_for_timeout(4000)
+
+        filas = await page.query_selector_all("table tbody tr")
+        for fila in filas:
+            celdas = await fila.query_selector_all("td")
+            textos = [(await c.inner_text()).strip() for c in celdas]
+            if len(textos) >= 9 and textos[0]:
+                resultados.append({
+                    "cuce": textos[0],
+                    "entidad": textos[1],
+                    "tipo_contratacion": textos[2],
+                    "modalidad": textos[3],
+                    "objeto_contratacion": textos[4],
+                    "subasta": textos[5],
+                    "fecha_publicacion": textos[6],
+                    "fecha_presentacion": textos[7],
+                    "estado": textos[8],
+                })
+
+        await browser.close()
+    return resultados
+
+
+@app.get("/api/consultar-sicoes")
+async def consultar_sicoes_endpoint(nit: str):
+    try:
+        resultados = await buscar_sicoes_por_nit(nit)
+        return {
+            "nit_consultado": nit,
+            "total_contratos_encontrados": len(resultados),
+            "contratos": resultados
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al consultar SICOES: {str(e)}")
