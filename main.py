@@ -103,7 +103,7 @@ def agregar_texto_con_formato(doc, texto: str):
             else:
                 parrafo.add_run(parte)
 
-def generar_documento_word(metadatos: dict, resultado_ia: str, nombre_archivo: str):
+def generar_documento_word(metadatos: dict, resultado_ia: str, nombre_archivo: str, resultados_consolidados: list):
     doc = docx.Document()
     for section in doc.sections:
         section.top_margin = Inches(1)
@@ -195,8 +195,10 @@ async def generar_informe_endpoint(solicitud: SolicitudVerificacion):
         )
         texto_ia = response.text
 
+        resultados_consolidados = await ejecutar_todas_las_plataformas(solicitud.nit_empresa)
+
         nombre_archivo = f"Informe_Verifika_{solicitud.nit_empresa}.docx"
-        generar_documento_word(metadatos, texto_ia, nombre_archivo)
+        generar_documento_word(metadatos, texto_ia, nombre_archivo, resultados_consolidados)    
 
         if os.path.exists(nombre_archivo):
             return FileResponse(
