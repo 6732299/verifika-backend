@@ -305,7 +305,7 @@ async def ejecutar_todas_las_plataformas(nit: str) -> list:
                 entrada["estado"] = "ok"
                 entrada["contratos_o_hallazgos"] = contratos
             except Exception as e:
-            print(f"ERROR SICOES para NIT {nit}: {e}")
+                print(f"ERROR SICOES para NIT {nit}: {e}")
                 entrada["detalle_error"] = str(e)
 
         resultados_consolidados.append(entrada)
