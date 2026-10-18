@@ -229,17 +229,22 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
         )
 
         await page.wait_for_selector("text=Avanzada", timeout=60000)
+        print("DEBUG SICOES: pagina cargada, boton Avanzada visible")
         await page.get_by_text("Avanzada", exact=True).click()
         await page.wait_for_timeout(2000)
+        print("DEBUG SICOES: boton Avanzada clickeado")
 
         campo_nit = page.locator("text=Nro. Documento").locator("xpath=following::input[1]")
         await campo_nit.wait_for(timeout=30000)
         await campo_nit.fill(nit, timeout=30000)
+        print("DEBUG SICOES: NIT ingresado en campo")
 
         await page.get_by_role("button", name="Buscar").click(timeout=30000)
         await page.wait_for_timeout(5000)
+        print("DEBUG SICOES: boton Buscar clickeado, esperando resultados")
 
         filas = await page.query_selector_all("table tbody tr")
+        print(f"DEBUG SICOES: {len(filas)} filas encontradas en tabla")
         for fila in filas:
             celdas = await fila.query_selector_all("td")
             textos = [(await c.inner_text()).strip() for c in celdas]
