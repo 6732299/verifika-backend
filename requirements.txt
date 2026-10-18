@@ -3,4 +3,5 @@ uvicorn[standard]
 python-docx
 google-genai
 pydantic
-playwright==1.42.0requests
+playwright==1.42.0
+requests
