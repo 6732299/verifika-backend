@@ -1,5 +1,6 @@
 import os
 import re
+import requests
 from datetime import datetime
 import docx
 from docx.shared import Inches, Pt, RGBColor
@@ -218,6 +219,12 @@ async def generar_informe_endpoint(solicitud: SolicitudVerificacion):
 
 async def buscar_sicoes_por_nit(nit: str) -> list:
     resultados = []
+    try:
+        resp_test = requests.get("https://www.sicoes.gob.bo/portal/contrataciones/busqueda/convocatorias.php?tipo=convNacional", timeout=15)
+        print(f"DEBUG SICOES: prueba de conexion simple - status {resp_test.status_code}")
+    except Exception as e_test:
+        print(f"DEBUG SICOES: prueba de conexion simple fallo - {e_test}")
+
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-blink-features=AutomationControlled"])
         page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
