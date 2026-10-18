@@ -225,10 +225,10 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
         await page.goto(
             "https://www.sicoes.gob.bo/portal/contrataciones/busqueda/convocatorias.php?tipo=convNacional",
             wait_until="domcontentloaded",
-            timeout=60000
+            timeout=180000
         )
 
-        await page.wait_for_selector("text=Avanzada", timeout=60000)
+        await page.wait_for_selector("text=Avanzada", timeout=180000)
         print("DEBUG SICOES: pagina cargada, boton Avanzada visible")
         await page.get_by_text("Avanzada", exact=True).click()
         await page.wait_for_timeout(2000)
