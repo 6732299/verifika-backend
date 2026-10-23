@@ -231,9 +231,14 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
 
         await page.goto(
             "https://www.sicoes.gob.bo/portal/contrataciones/busqueda/convocatorias.php?tipo=convNacional",
-            wait_until="domcontentloaded",
-            timeout=180000
+            wait_until="commit",
+            timeout=60000
         )
+        print("DEBUG SICOES: goto con wait_until=commit completado")
+        titulo_pagina = await page.title()
+        print(f"DEBUG SICOES: titulo de la pagina: {titulo_pagina}")
+        contenido_parcial = await page.content()
+        print(f"DEBUG SICOES: primeros 500 caracteres del HTML: {contenido_parcial[:500]}")
 
         await page.wait_for_selector("text=Avanzada", timeout=180000)
         print("DEBUG SICOES: pagina cargada, boton Avanzada visible")
