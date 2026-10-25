@@ -240,8 +240,24 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
         contenido_parcial = await page.content()
         print(f"DEBUG SICOES: primeros 500 caracteres del HTML: {contenido_parcial[:500]}")
 
-        await page.wait_for_selector("text=Avanzada", timeout=180000)
-        print("DEBUG SICOES: pagina cargada, boton Avanzada visible")
+        try:
+            await page.wait_for_load_state("domcontentloaded", timeout=60000)
+            print("DEBUG SICOES: domcontentloaded alcanzado")
+        except Exception as e_dom:
+            print(f"DEBUG SICOES: domcontentloaded NO alcanzado - {e_dom}")
+
+        try:
+            await page.wait_for_selector("text=Avanzada", timeout=90000)
+            print("DEBUG SICOES: pagina cargada, boton Avanzada visible")
+        except Exception as e_av:
+            print(f"DEBUG SICOES: no aparecio Avanzada - {e_av}")
+            print(f"DEBUG SICOES: url actual: {page.url}")
+            try:
+                texto_body = await page.inner_text("body", timeout=10000)
+                print(f"DEBUG SICOES: texto visible (600 car): {texto_body[:600]!r}")
+            except Exception as e_body:
+                print(f"DEBUG SICOES: no se pudo leer body - {e_body}")
+            raise
         await page.get_by_text("Avanzada", exact=True).click()
         await page.wait_for_timeout(2000)
         print("DEBUG SICOES: boton Avanzada clickeado")
