@@ -229,11 +229,17 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
         browser = await p.chromium.launch(headless=True, args=["--no-sandbox", "--disable-blink-features=AutomationControlled"])
         page = await browser.new_page(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
+        await page.goto("https://www.sicoes.gob.bo/portal/index.php", wait_until="commit", timeout=60000)
+        await page.wait_for_timeout(6000)
+        print(f"DEBUG SICOES: portada visitada, url: {page.url}")
+
         await page.goto(
             "https://www.sicoes.gob.bo/portal/contrataciones/busqueda/convocatorias.php?tipo=convNacional",
             wait_until="commit",
             timeout=60000
         )
+        await page.wait_for_timeout(3000)
+        print(f"DEBUG SICOES: pagina de busqueda, url: {page.url}")
         print("DEBUG SICOES: goto con wait_until=commit completado")
         titulo_pagina = await page.title()
         print(f"DEBUG SICOES: titulo de la pagina: {titulo_pagina}")
