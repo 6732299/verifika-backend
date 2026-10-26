@@ -263,6 +263,13 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
                 print(f"DEBUG SICOES: texto visible (600 car): {texto_body[:600]!r}")
             except Exception as e_body:
                 print(f"DEBUG SICOES: no se pudo leer body - {e_body}")
+            try:
+                marcos = [f.url for f in page.frames]
+                print(f"DEBUG SICOES: marcos internos: {marcos!r}")
+                enlaces = await page.eval_on_selector_all("a", """els => els.map(e => (e.innerText || "").trim() + " => " + (e.getAttribute("href") || "")).filter(t => /convoc|busqueda|contrataciones/i.test(t))""")
+                print(f"DEBUG SICOES: enlaces relevantes: {enlaces[:30]!r}")
+            except Exception as e_enl:
+                print(f"DEBUG SICOES: no se pudieron leer enlaces - {e_enl}")
             raise
         await page.get_by_text("Avanzada", exact=True).click()
         await page.wait_for_timeout(2000)
