@@ -233,13 +233,10 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
         await page.wait_for_timeout(6000)
         print(f"DEBUG SICOES: portada visitada, url: {page.url}")
 
-        await page.goto(
-            "https://www.sicoes.gob.bo/portal/contrataciones/busqueda/convocatorias.php?tipo=convNacional",
-            wait_until="commit",
-            timeout=60000
-        )
-        await page.wait_for_timeout(3000)
-        print(f"DEBUG SICOES: pagina de busqueda, url: {page.url}")
+        clic_ok = await page.evaluate("""() => { const a = Array.from(document.querySelectorAll("a")).find(e => (e.innerText || "").trim() === "Convocatorias"); if (a) { a.click(); return true; } return false; }""")
+        print(f"DEBUG SICOES: clic en menu Convocatorias encontrado: {clic_ok}")
+        await page.wait_for_timeout(6000)
+        print(f"DEBUG SICOES: tras clic en menu, url: {page.url}")
         print("DEBUG SICOES: goto con wait_until=commit completado")
         titulo_pagina = await page.title()
         print(f"DEBUG SICOES: titulo de la pagina: {titulo_pagina}")
