@@ -277,9 +277,20 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
         await campo_nit.fill(nit, timeout=30000)
         print("DEBUG SICOES: NIT ingresado en campo")
 
+        valor_campo = await campo_nit.input_value()
+        print(f"DEBUG SICOES: valor en campo Nro. Documento: {valor_campo}")
+        filas_antes = await page.query_selector_all("table tbody tr")
+        primera_antes = (await filas_antes[0].inner_text()) if filas_antes else ""
+        print(f"DEBUG SICOES: filas antes de buscar: {len(filas_antes)}")
+
         await page.get_by_role("button", name="Buscar").click(timeout=30000)
-        await page.wait_for_timeout(5000)
         print("DEBUG SICOES: boton Buscar clickeado, esperando resultados")
+        try:
+            await page.wait_for_function("""(previo) => { const f = document.querySelector("table tbody tr"); return f && f.innerText !== previo; }""", arg=primera_antes, timeout=45000)
+            print("DEBUG SICOES: la tabla cambio tras Buscar")
+        except Exception as e_tabla:
+            print(f"DEBUG SICOES: la tabla NO cambio tras Buscar - {e_tabla}")
+        await page.wait_for_timeout(3000)
 
         filas = await page.query_selector_all("table tbody tr")
         print(f"DEBUG SICOES: {len(filas)} filas encontradas en tabla")
