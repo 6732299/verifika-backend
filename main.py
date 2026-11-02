@@ -284,9 +284,17 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
         print(f"DEBUG SICOES: filas antes de buscar: {len(filas_antes)}")
 
         respuestas = []
-        def _resp(r):
+        async def _resp(r):
             if r.request.resource_type in ("xhr", "fetch", "document"):
                 respuestas.append(f"{r.request.method} {r.status} {r.url[:140]}")
+                if "operacion.php" in r.url:
+                    enviado = r.request.post_data or ""
+                    respuestas.append(f"ENVIADO: {enviado[:400]!r}")
+                    try:
+                        cuerpo = await r.text()
+                        respuestas.append(f"CUERPO: {cuerpo[:700]!r}")
+                    except Exception as e_cuerpo:
+                        respuestas.append(f"CUERPO no legible: {e_cuerpo}")
         page.on("response", _resp)
         async def _dlg(d):
             respuestas.append(f"DIALOGO {d.message[:140]}")
@@ -294,19 +302,24 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
         page.on("dialog", _dlg)
         await page.get_by_role("button", name="Buscar").click(timeout=30000)
         print("DEBUG SICOES: boton Buscar clickeado, esperando resultados")
+        filtro_aplicado = False
         try:
             await page.wait_for_function("""(previo) => { const f = document.querySelector("table tbody tr"); return f && f.innerText !== previo; }""", arg=primera_antes, timeout=45000)
             print("DEBUG SICOES: la tabla cambio tras Buscar")
+            filtro_aplicado = True
         except Exception as e_tabla:
             print(f"DEBUG SICOES: la tabla NO cambio tras Buscar - {e_tabla}")
             try:
                 await campo_nit.press("Enter")
                 await page.wait_for_function("""(previo) => { const f = document.querySelector("table tbody tr"); return f && f.innerText !== previo; }""", arg=primera_antes, timeout=30000)
                 print("DEBUG SICOES: la tabla cambio tras presionar Enter")
+                filtro_aplicado = True
             except Exception as e_enter:
                 print(f"DEBUG SICOES: la tabla NO cambio tras Enter - {e_enter}")
         await page.wait_for_timeout(3000)
         print(f"DEBUG SICOES: red tras Buscar: {respuestas[-15:]!r}")
+        if not filtro_aplicado:
+            raise Exception("SICOES no aplico el filtro por NIT; resultados no confiables")
 
         filas = await page.query_selector_all("table tbody tr")
         print(f"DEBUG SICOES: {len(filas)} filas encontradas en tabla")
