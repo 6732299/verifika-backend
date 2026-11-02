@@ -283,6 +283,15 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
         primera_antes = (await filas_antes[0].inner_text()) if filas_antes else ""
         print(f"DEBUG SICOES: filas antes de buscar: {len(filas_antes)}")
 
+        respuestas = []
+        def _resp(r):
+            if r.request.resource_type in ("xhr", "fetch", "document"):
+                respuestas.append(f"{r.request.method} {r.status} {r.url[:140]}")
+        page.on("response", _resp)
+        async def _dlg(d):
+            respuestas.append(f"DIALOGO {d.message[:140]}")
+            await d.dismiss()
+        page.on("dialog", _dlg)
         await page.get_by_role("button", name="Buscar").click(timeout=30000)
         print("DEBUG SICOES: boton Buscar clickeado, esperando resultados")
         try:
@@ -290,7 +299,14 @@ async def buscar_sicoes_por_nit(nit: str) -> list:
             print("DEBUG SICOES: la tabla cambio tras Buscar")
         except Exception as e_tabla:
             print(f"DEBUG SICOES: la tabla NO cambio tras Buscar - {e_tabla}")
+            try:
+                await campo_nit.press("Enter")
+                await page.wait_for_function("""(previo) => { const f = document.querySelector("table tbody tr"); return f && f.innerText !== previo; }""", arg=primera_antes, timeout=30000)
+                print("DEBUG SICOES: la tabla cambio tras presionar Enter")
+            except Exception as e_enter:
+                print(f"DEBUG SICOES: la tabla NO cambio tras Enter - {e_enter}")
         await page.wait_for_timeout(3000)
+        print(f"DEBUG SICOES: red tras Buscar: {respuestas[-15:]!r}")
 
         filas = await page.query_selector_all("table tbody tr")
         print(f"DEBUG SICOES: {len(filas)} filas encontradas en tabla")
