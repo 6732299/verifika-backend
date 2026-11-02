@@ -38,6 +38,11 @@ class SolicitudVerificacion(BaseModel):
     razon_social: str
     solicitante: str
     motivo_consulta: str
+    calificacion_manual: str = ""
+    nivel_manual: str = ""
+    justificacion_manual: str = ""
+    garantia_manual: str = ""
+    hallazgos_manuales: str = ""
 
 MESES_ES = {
     1: "enero", 2: "febrero", 3: "marzo", 4: "abril", 5: "mayo", 6: "junio",
@@ -48,7 +53,23 @@ def fecha_actual_en_espanol() -> str:
     ahora = datetime.now()
     return f"{ahora.day} de {MESES_ES[ahora.month]} de {ahora.year}"
 
-def calcular_calificacion_automatica(nit: str) -> dict:
+def evaluacion_desde_solicitud(solicitud) -> dict:
+    if solicitud.calificacion_manual.strip():
+        return {
+            "calificacion": solicitud.calificacion_manual.strip(),
+            "nivel": solicitud.nivel_manual.strip() or "Definido por el analista",
+            "justificacion": solicitud.justificacion_manual.strip() or "Calificación asignada por el analista de Verifika B2B.",
+            "garantia_requerida": solicitud.garantia_manual.strip() or "A criterio del analista."
+        }
+    return {
+        "calificacion": "PENDIENTE",
+        "nivel": "Pendiente de validación por el analista",
+        "justificacion": "La calificación aún no ha sido asignada; requiere validación manual del analista de Verifika B2B.",
+        "garantia_requerida": "Por definir tras la validación del analista."
+    }
+
+
+def _calificacion_demo_no_usar(nit: str) -> dict:
     if nit.endswith("9"):
         return {
             "calificacion": "BBB",
@@ -165,7 +186,7 @@ def generar_documento_word(metadatos: dict, resultado_ia: str, nombre_archivo: s
 @app.post("/api/generar-informe")
 async def generar_informe_endpoint(solicitud: SolicitudVerificacion):
     try:
-        evaluacion = calcular_calificacion_automatica(solicitud.nit_empresa)
+        evaluacion = evaluacion_desde_solicitud(solicitud)
         fecha_emision = fecha_actual_en_espanol()
         metadatos = {
             "n_informe": f"VB2B-2026-{solicitud.nit_empresa[-4:]}",
@@ -389,6 +410,7 @@ async def ejecutar_todas_las_plataformas(nit: str) -> list:
                 entrada["contratos_o_hallazgos"] = contratos
             except Exception as e:
                 print(f"ERROR SICOES para NIT {nit}: {e}")
+                entrada["estado"] = "error"
                 entrada["detalle_error"] = str(e)
 
         resultados_consolidados.append(entrada)
@@ -417,7 +439,7 @@ def agregar_seccion_plataformas(doc, resultados_consolidados: list):
                     doc.add_paragraph(texto, style="List Bullet")
         elif item["estado"] == "error":
             doc.add_paragraph(
-                "No se pudo completar la verificación automática en esta fuente en este momento "
+                "Pendiente de verificación manual por el analista de Verifika B2B: la consulta automática no pudo completarse en este momento "
                 "(se recomienda verificación manual complementaria)."
             )
         elif item["tipo"] == "comodin_manual":
@@ -432,7 +454,7 @@ def agregar_seccion_plataformas(doc, resultados_consolidados: list):
             )
         else:
             doc.add_paragraph(
-                "Fuente automatizable, pendiente de integración en esta fase del desarrollo del motor."
+                "Pendiente de verificación manual por el analista de Verifika B2B."
             )
 
 
@@ -441,7 +463,7 @@ async def generar_informe_completo_endpoint(solicitud: SolicitudVerificacion):
     try:
         resultados_consolidados = await ejecutar_todas_las_plataformas(solicitud.nit_empresa)
 
-        evaluacion = calcular_calificacion_automatica(solicitud.nit_empresa)
+        evaluacion = evaluacion_desde_solicitud(solicitud)
         fecha_emision = fecha_actual_en_espanol()
         metadatos = {
             "n_informe": f"VB2B-2026-{solicitud.nit_empresa[-4:]}",
@@ -468,6 +490,15 @@ async def generar_informe_completo_endpoint(solicitud: SolicitudVerificacion):
 
         Resultado de la consulta automática en las fuentes públicas:
         {resumen_fuentes}
+
+        Hallazgos verificados manualmente por el analista (usar solo estos como hechos confirmados;
+        si el texto siguiente esta vacio, no hay hallazgos manuales):
+        {solicitud.hallazgos_manuales}
+
+        REGLAS ESTRICTAS: No inventes hallazgos ni datos. Si una fuente figura como pendiente, error o
+        sin implementar, indícalo como pendiente de verificación manual. Nunca afirmes que el sujeto
+        no tiene contingencias ni que es solvente salvo que lo indique el analista. Si la calificación
+        es PENDIENTE, dilo expresamente en el dictamen.
 
         IMPORTANTE: No incluyas una línea de "Fecha de emisión" ni un encabezado con fecha, destinatario
         o nombre de empresa al inicio del texto — esos datos ya aparecen en la tabla de metadatos del
